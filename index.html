@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<title>Sidebar Notes</title>
+
+<style>
+:root {
+  --bg: #1e1e1e;
+  --panel: #252526;
+  --border: #333;
+  --text: #e6e6e6;
+  --muted: #9e9e9e;
+  --accent: #4fc3f7;
+  --danger: #ff6b6b;
+}
+
+* {
+  box-sizing: border-box;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* HEADER */
+header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 12px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+header .title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+}
+
+header button {
+  background: none;
+  border: none;
+  color: var(--text);
+  font-size: 18px;
+  cursor: pointer;
+}
+
+/* MAIN LAYOUT */
+main {
+  flex: 1;
+  display: flex;
+  overflow: hidden;
+}
+
+/* SIDEBAR LIST */
+aside {
+  width: 42%;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+}
+
+aside .add {
+  padding: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+aside .add button {
+  width: 100%;
+  padding: 6px;
+  background: var(--accent);
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+aside ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  overflow-y: auto;
+}
+
+aside li {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+}
+
+aside li.active {
+  background: #2d2d2d;
+  color: var(--accent);
+}
+
+aside li:hover {
+  background: #2a2a2a;
+}
+
+/* CONTENT */
+section {
+  flex: 1;
+  padding: 12px;
+  overflow-y: auto;
+}
+
+h2 {
+  margin-top: 0;
+  font-size: 16px;
+}
+
+p {
+  white-space: pre-wrap;
+  line-height: 1.5;
+}
+
+/* EDIT MODE */
+input, textarea {
+  width: 100%;
+  margin-bottom: 8px;
+  padding: 6px;
+  background: #1b1b1b;
+  border: 1px solid var(--border);
+  color: var(--text);
+}
+
+textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.actions {
+  display: flex;
+  gap: 8px;
+}
+
+.actions button {
+  padding: 6px 10px;
+  border: none;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.save {
+  background: var(--accent);
+}
+
+.delete {
+  background: var(--danger);
+}
+
+.muted {
+  font-size: 12px;
+  color: var(--muted);
+}
+</style>
+</head>
+
+<body>
+
+<header>
+  <div class="title">
+    <span>📄</span>
+    <span>Notlarım</span>
+  </div>
+  <button id="toggleEdit" title="Ayarlar / Düzenle">⚙️</button>
+</header>
+
+<main>
+  <aside>
+    <div class="add">
+      <button id="newNoteBtn">➕ Yeni Not</button>
+    </div>
+    <ul id="noteList"></ul>
+  </aside>
+
+  <section id="content"></section>
+</main>
+
+<script>
+const STORAGE_KEY = "opera_sidebar_notes_v2";
+
+let notes = JSON.parse(localStorage.getItem(STORAGE_KEY)) || [];
+let selectedId = null;
+let editMode = false;
+
+/* INIT */
+if (notes.length === 0) {
+  const first = createNote("Hoş geldin", "Bu Opera Sidebar için hazırlanmış kişisel not uygulamandır.\n\n⚙️ Ayarlar ile düzenleyebilirsin.");
+  notes.push(first);
+  selectedId = first.id;
+  save();
+}
+
+/* HELPERS */
+function save() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(notes));
+}
+
+function createNote(title = "", content = "") {
+  return {
+    id: Date.now() + Math.random(),
+    title,
+    content
+  };
+}
+
+/* RENDER */
+function renderList() {
+  const list = document.getElementById("noteList");
+  list.innerHTML = "";
+  notes.forEach(n => {
+    const li = document.createElement("li");
+    li.textContent = n.title || "(Başlıksız)";
+    if (n.id === selectedId) li.classList.add("active");
+    li.onclick = () => {
+      selectedId = n.id;
+      render();
+    };
+    list.appendChild(li);
+  });
+}
+
+function renderContent() {
+  const area = document.getElementById("content");
+  const note = notes.find(n => n.id === selectedId);
+
+  if (!note) {
+    area.innerHTML = "<p class='muted'>Not seçili değil</p>";
+    return;
+  }
+
+  if (!editMode) {
+    area.innerHTML = `
+      <h2>${note.title}</h2>
+      <p>${note.content}</p>
+    `;
+  } else {
+    area.innerHTML = `
+      <input id="titleInput" placeholder="Başlık" value="${note.title}">
+      <textarea id="contentInput" placeholder="İçerik">${note.content}</textarea>
+      <div class="actions">
+        <button class="save" onclick="saveEdit()">Kaydet</button>
+        <button class="delete" onclick="deleteNote()">Sil</button>
+      </div>
+      <p class="muted">Değişiklikler kalıcı olarak saklanır</p>
+    `;
+  }
+}
+
+function render() {
+  renderList();
+  renderContent();
+}
+
+/* ACTIONS */
+function saveEdit() {
+  const note = notes.find(n => n.id === selectedId);
+  if (!note) return;
+
+  note.title = document.getElementById("titleInput").value;
+  note.content = document.getElementById("contentInput").value;
+  save();
+  render();
+}
+
+function deleteNote() {
+  notes = notes.filter(n => n.id !== selectedId);
+  selectedId = notes[0]?.id || null;
+  save();
+  render();
+}
+
+/* EVENTS */
+document.getElementById("toggleEdit").onclick = () => {
+  editMode = !editMode;
+  render();
+};
+
+document.getElementById("newNoteBtn").onclick = () => {
+  const n = createNote("Yeni Not", "");
+  notes.push(n);
+  selectedId = n.id;
+  editMode = true;
+  save();
+  render();
+};
+
+render();
+</script>
+
+</body>
+</html>
